@@ -1,0 +1,5 @@
+{
+  "name": "Life Dashboard",
+  "description": "A personal dashboard to help keep track of different aspects of life, designed for those who need a little help with memory. It features a dark, space-themed interface with tabbed categories and editable widgets for organization.",
+  "requestFramePermissions": []
+}
