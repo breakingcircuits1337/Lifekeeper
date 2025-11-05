@@ -4,6 +4,7 @@ import Widget from './components/Widget';
 import DashboardView from './components/DashboardView';
 import { DEFAULT_DASHBOARD_DATA } from './constants';
 import AddWidgetModal from './components/AddWidgetModal';
+import AIAssistant from './components/AIAssistant';
 
 const App: React.FC = () => {
   const [data, setData] = useState<TabData[]>([]);
@@ -315,6 +316,9 @@ const App: React.FC = () => {
           )}
         </main>
       </div>
+
+      {/* AI Assistant floating helper */}
+      <AIAssistant data={data} />
       
       <AddWidgetModal 
         isOpen={isAddWidgetModalOpen} 
