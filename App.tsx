@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import type { TabData, WidgetData, AppointmentWidgetContent, ScheduleWidgetContent } from './types';
 import Widget from './components/Widget';
 import DashboardView from './components/DashboardView';
@@ -10,6 +10,7 @@ const App: React.FC = () => {
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
   const [isAddWidgetModalOpen, setIsAddWidgetModalOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -43,6 +44,58 @@ const App: React.FC = () => {
       }
     }
   }, [data, activeTabId, isInitialized]);
+
+  const handleExportData = () => {
+    const payload = {
+      version: 1,
+      timestamp: new Date().toISOString(),
+      activeTabId,
+      data,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'life-dashboard-data.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImportFile: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result || '{}'));
+        if (Array.isArray(parsed)) {
+          setData(parsed);
+          setActiveTabId('dashboard');
+        } else if (parsed && parsed.data && Array.isArray(parsed.data)) {
+          setData(parsed.data);
+          setActiveTabId(typeof parsed.activeTabId === 'string' ? parsed.activeTabId : 'dashboard');
+        }
+      } catch (err) {
+        console.error('Failed to import file', err);
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleResetData = () => {
+    if (window.confirm('Reset dashboard to default data? This will overwrite current data.')) {
+      setData(DEFAULT_DASHBOARD_DATA);
+      setActiveTabId('dashboard');
+    }
+  };
   
   const handleWidgetChange = (tabId: string, widgetId: string, newContent: WidgetData['content']) => {
     setData(prevData =>
@@ -161,6 +214,36 @@ const App: React.FC = () => {
           <div className="p-4 border-b border-slate-800 hidden md:block">
             <h1 className="text-2xl font-bold text-slate-100">Life Dashboard</h1>
             <p className="text-sm text-slate-400 mt-1">Your personal command center.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={handleExportData}
+                className="text-xs px-2 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                title="Download your dashboard data as a JSON file"
+              >
+                Save Data
+              </button>
+              <button
+                onClick={handleImportClick}
+                className="text-xs px-2 py-2 rounded-md bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                title="Import data from a JSON file"
+              >
+                Load Data
+              </button>
+              <button
+                onClick={handleResetData}
+                className="col-span-2 text-xs px-2 py-2 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                title="Reset to default tabs and widgets"
+              >
+                Reset to Defaults
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+            </div>
           </div>
           <nav className="p-2">
             <ul className="flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible">
