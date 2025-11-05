@@ -6,6 +6,7 @@ import { DEFAULT_DASHBOARD_DATA } from './constants';
 import AddWidgetModal from './components/AddWidgetModal';
 import AIAssistant from './components/AIAssistant';
 import Notifications, { Notification } from './components/Notifications';
+import { speakReminder } from './services/voice';
 
 const App: React.FC = () => {
   const [data, setData] = useState<TabData[]>([]);
@@ -403,6 +404,7 @@ const App: React.FC = () => {
       if (msUntil > oneWeek) return;
 
       const timeoutId = window.setTimeout(() => {
+        const msg = `Reminder in 15 minutes: ${e.description}${e.startTime ? ' at ' + e.startTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : ''}.`;
         setNotifications(prev => [
           ...prev,
           {
@@ -412,6 +414,8 @@ const App: React.FC = () => {
             time: e.startTime || e.date,
           },
         ]);
+        // Speak the reminder if ElevenLabs is configured
+        speakReminder(msg);
       }, msUntil);
       timeoutsRef.current.push(timeoutId);
     });
@@ -560,9 +564,18 @@ const App: React.FC = () => {
       />
 
       {/* Notifications */}
-      <Notifications notifications={notifications} onDismiss={(id) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-      }} />
+      <Notifications
+        notifications={notifications}
+        onDismiss={(id) => {
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        }}
+        onSpeak={(n) => {
+          const msg = n.title.includes('Reminder')
+            ? n.body ? `Reminder: ${n.body}` : 'Reminder.'
+            : n.body;
+          if (msg) speakReminder(msg);
+        }}
+      />
       
       <AddWidgetModal 
         isOpen={isAddWidgetModalOpen} 

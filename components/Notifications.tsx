@@ -10,9 +10,10 @@ export interface Notification {
 interface NotificationsProps {
   notifications: Notification[];
   onDismiss: (id: string) => void;
+  onSpeak?: (notification: Notification) => void;
 }
 
-const Notifications: React.FC<NotificationsProps> = ({ notifications, onDismiss }) => {
+const Notifications: React.FC<NotificationsProps> = ({ notifications, onDismiss, onSpeak }) => {
   if (notifications.length === 0) return null;
 
   return (
@@ -27,6 +28,15 @@ const Notifications: React.FC<NotificationsProps> = ({ notifications, onDismiss 
                 <p className="text-[11px] text-slate-500 mt-2">
                   {n.time.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                 </p>
+              )}
+              {onSpeak && (
+                <button
+                  onClick={() => onSpeak(n)}
+                  className="mt-2 text-xs px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+                  title="Play voice reminder"
+                >
+                  Play voice
+                </button>
               )}
             </div>
             <button
