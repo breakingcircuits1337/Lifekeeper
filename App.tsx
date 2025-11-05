@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import type { TabData, WidgetData, AppointmentWidgetContent, ScheduleWidgetContent } from './types';
+import type { TabData, WidgetData, AppointmentWidgetContent, ScheduleWidgetContent, ChecklistWidgetContent, CalendarEvent } from './types';
 import Widget from './components/Widget';
 import DashboardView from './components/DashboardView';
 import { DEFAULT_DASHBOARD_DATA } from './constants';
 import AddWidgetModal from './components/AddWidgetModal';
 import AIAssistant from './components/AIAssistant';
+import Notifications, { Notification } from './components/Notifications';
 
 const App: React.FC = () => {
   const [data, setData] = useState<TabData[]>([]);
@@ -121,6 +122,10 @@ const App: React.FC = () => {
                    return { ...widget, content: newContent as ScheduleWidgetContent };
                 }
 
+                if (widget.type === 'checklist' && typeof newContent === 'object' && newContent !== null && 'items' in newContent) {
+                  return { ...widget, content: newContent as ChecklistWidgetContent };
+                }
+
                 return widget;
               }),
             }
@@ -129,7 +134,7 @@ const App: React.FC = () => {
     );
   };
   
-  const handleAddNewWidget = (tabId: string, title: string, type: 'generic' | 'appointment') => {
+  const handleAddNewWidget = (tabId: string, title: string, type: 'generic' | 'appointment' | 'checklist') => {
     if (!tabId || !title.trim()) return;
 
     let newWidget: WidgetData;
@@ -145,6 +150,12 @@ const App: React.FC = () => {
             ...baseWidget,
             type: 'appointment',
             content: { date: '', time: '', person: '', location: '', description: '', recurrence: 'none' },
+        };
+    } else if (type === 'checklist') {
+        newWidget = {
+          ...baseWidget,
+          type: 'checklist',
+          content: { items: [] },
         };
     } else {
          newWidget = {
@@ -197,6 +208,220 @@ const App: React.FC = () => {
   };
 
   const activeTabData = useMemo(() => data.find(tab => tab.id === activeTabId), [data, activeTabId]);
+
+  // Notifications state
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const timeoutsRef = useRef<number[]>([]);
+
+  // Event parsing (copied from DashboardView to reuse for reminders)
+  const parseTimeRange = (text: string, baseDate: Date): { startTime: Date | null, endTime: Date | null, description: string } => {
+    const timeRegex = /((\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?)/gi;
+    const matches = [...text.matchAll(timeRegex)];
+
+    let startTime: Date | null = null;
+    let endTime: Date | null = null;
+    let description = text;
+
+    const createDate = (hourStr: string, minuteStr: string | undefined, ampm: string | undefined) => {
+        let hour = parseInt(hourStr, 10);
+        const minute = minuteStr ? parseInt(minuteStr, 10) : 0;
+
+        if (ampm?.toLowerCase() === 'pm' && hour < 12) {
+            hour += 12;
+        }
+        if (ampm?.toLowerCase() === 'am' && hour === 12) {
+            hour = 0; // Midnight case
+        }
+
+        const newDate = new Date(baseDate);
+        newDate.setHours(hour, minute, 0, 0);
+        return newDate;
+    };
+
+    if (matches.length > 0) {
+        const firstMatch = matches[0];
+        startTime = createDate(firstMatch[2], firstMatch[3], firstMatch[4]);
+        
+        // Remove time string from description for cleaner display
+        description = text.replace(firstMatch[0], '').trim();
+
+        if (matches.length > 1) {
+            const secondMatch = matches[1];
+            endTime = createDate(secondMatch[2], secondMatch[3], secondMatch[4]);
+             // Further clean description
+            description = description.replace(secondMatch[0], '').replace(/[-to]+/i, '').trim();
+        }
+    }
+    
+    return { startTime, endTime, description: description || text };
+  };
+
+  const parseEventsFromData = (dataArg: TabData[]): CalendarEvent[] => {
+    const events: CalendarEvent[] = [];
+
+    dataArg.forEach(tab => {
+      tab.widgets.forEach(widget => {
+        if (widget.type === 'appointment' && widget.content.date) {
+          const parsedDate = new Date(`${widget.content.date}T00:00:00`);
+          if (isNaN(parsedDate.getTime())) return;
+
+          const createEventForDate = (date: Date): CalendarEvent => {
+            let startTime: Date | null = null;
+            if (widget.content.time) {
+                const [hours, minutes] = widget.content.time.split(':');
+                startTime = new Date(date);
+                startTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+            }
+
+            let description = widget.content.description || widget.title;
+            if (widget.content.person) description += ` w/ ${widget.content.person}`;
+            if (widget.content.location) description += ` at ${widget.content.location}`;
+
+            return {
+              date: date,
+              startTime,
+              endTime: null,
+              title: widget.title,
+              description,
+              tabId: tab.id,
+            };
+          };
+          
+          // Add the primary event
+          events.push(createEventForDate(parsedDate));
+
+          // Handle recurrence (simple expansion window ~6 months)
+          const recurrence = widget.content.recurrence;
+          if (recurrence && recurrence !== 'none') {
+              if (recurrence === 'daily' || recurrence === 'weekly') {
+                  const occurrences = 180;
+                  for (let i = 1; i <= occurrences; i++) {
+                      const nextDate = new Date(parsedDate);
+                      const increment = recurrence === 'daily' ? i : i * 7;
+                      nextDate.setDate(parsedDate.getDate() + increment);
+                      events.push(createEventForDate(nextDate));
+                  }
+              } else if (recurrence === 'monthly') {
+                  const monthlyOccurrences = 6;
+                  for (let i = 1; i <= monthlyOccurrences; i++) {
+                      const nextDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth() + i, parsedDate.getDate());
+                      if (nextDate.getDate() === parsedDate.getDate()) {
+                          events.push(createEventForDate(nextDate));
+                      }
+                  }
+              }
+          }
+        }
+      });
+    });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dayKeyMap: (keyof ScheduleWidgetContent)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+    dataArg.forEach(tab => {
+      tab.widgets.forEach(widget => {
+        if (widget.type === 'schedule') {
+          const scheduleContent = widget.content;
+          
+          for (let i = 0; i < 180; i++) {
+            const currentDateInLoop = new Date(today);
+            currentDateInLoop.setDate(today.getDate() + i);
+            
+            const dayOfWeekIndex = currentDateInLoop.getDay();
+            const dayKey = dayKeyMap[dayOfWeekIndex];
+            
+            const scheduleForDay = scheduleContent[dayKey];
+            if (scheduleForDay && scheduleForDay.trim() !== '') {
+              const { startTime, endTime, description } = parseTimeRange(scheduleForDay.trim(), currentDateInLoop);
+              events.push({
+                date: currentDateInLoop,
+                startTime,
+                endTime,
+                title: widget.title,
+                description,
+                tabId: tab.id,
+              });
+            }
+          }
+        }
+      });
+    });
+
+    return events;
+  };
+
+  // On app start: show upcoming events and schedule 15-min-before reminders
+  useEffect(() => {
+    if (!isInitialized) return;
+
+    // Clear previous timers
+    timeoutsRef.current.forEach(t => clearTimeout(t));
+    timeoutsRef.current = [];
+
+    const allEvents = parseEventsFromData(data);
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const threeDaysAhead = new Date(startOfToday);
+    threeDaysAhead.setDate(startOfToday.getDate() + 3);
+
+    const upcoming = allEvents
+      .filter(e => e.date >= startOfToday && e.date <= threeDaysAhead)
+      .sort((a, b) => {
+        const at = a.startTime ? a.startTime.getTime() : a.date.getTime();
+        const bt = b.startTime ? b.startTime.getTime() : b.date.getTime();
+        return at - bt;
+      });
+
+    if (upcoming.length > 0) {
+      const body = upcoming.slice(0, 8).map(e => {
+        const dateStr = e.date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', weekday: 'short' });
+        const timeStr = e.startTime ? e.startTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : 'All Day';
+        return `• ${dateStr} — ${timeStr}: ${e.description}`;
+      }).join('\\n');
+
+      setNotifications(prev => [
+        ...prev,
+        {
+          id: `start_${Date.now()}`,
+          title: 'Upcoming events (next 3 days)',
+          body,
+        },
+      ]);
+    }
+
+    // Schedule reminders 15 minutes before events with a startTime
+    const FIFTEEN_MIN = 15 * 60 * 1000;
+    allEvents.forEach(e => {
+      if (!e.startTime) return;
+      const reminderTime = new Date(e.startTime.getTime() - FIFTEEN_MIN);
+      const msUntil = reminderTime.getTime() - now.getTime();
+      if (msUntil <= 0) return;
+      // Avoid scheduling too far in future (limit ~7 days to prevent too many timers)
+      const oneWeek = 7 * 24 * 60 * 60 * 1000;
+      if (msUntil > oneWeek) return;
+
+      const timeoutId = window.setTimeout(() => {
+        setNotifications(prev => [
+          ...prev,
+          {
+            id: `rem_${e.tabId}_${e.title}_${reminderTime.getTime()}`,
+            title: 'Reminder (15 min)',
+            body: `${e.description} at ${e.startTime?.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`,
+            time: e.startTime || e.date,
+          },
+        ]);
+      }, msUntil);
+      timeoutsRef.current.push(timeoutId);
+    });
+
+    return () => {
+      timeoutsRef.current.forEach(t => clearTimeout(t));
+      timeoutsRef.current = [];
+    };
+  }, [isInitialized, data]);
+  
 
   return (
     <>
@@ -318,7 +543,26 @@ const App: React.FC = () => {
       </div>
 
       {/* AI Assistant floating helper */}
-      <AIAssistant data={data} />
+      <AIAssistant
+        data={data}
+        onCreateChecklist={(tabId, title, items) => {
+          const content: ChecklistWidgetContent = { items: items.map(text => ({ text, done: false })) };
+          const id = `${tabId}_checklist_${Date.now()}`;
+          setData(prev =>
+            prev.map(t =>
+              t.id === tabId
+                ? { ...t, widgets: [...t.widgets, { id, title, type: 'checklist', content, colSpan: 1, rowSpan: 1 }] }
+                : t
+            )
+          );
+          setActiveTabId(tabId);
+        }}
+      />
+
+      {/* Notifications */}
+      <Notifications notifications={notifications} onDismiss={(id) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }} />
       
       <AddWidgetModal 
         isOpen={isAddWidgetModalOpen} 

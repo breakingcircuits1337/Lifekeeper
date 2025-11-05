@@ -41,7 +41,25 @@ export interface ScheduleWidgetData extends BaseWidgetData {
   content: ScheduleWidgetContent;
 }
 
-export type WidgetData = GenericWidgetData | AppointmentWidgetData | ScheduleWidgetData;
+export interface ChecklistItem {
+  text: string;
+  done: boolean;
+}
+
+export interface ChecklistWidgetContent {
+  items: ChecklistItem[];
+}
+
+export interface ChecklistWidgetData extends BaseWidgetData {
+  type: 'checklist';
+  content: ChecklistWidgetContent;
+}
+
+export type WidgetData =
+  | GenericWidgetData
+  | AppointmentWidgetData
+  | ScheduleWidgetData
+  | ChecklistWidgetData;
 
 
 export interface TabData {

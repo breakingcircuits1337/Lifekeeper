@@ -1,22 +1,24 @@
 import React, { useMemo, useState } from 'react';
-import type { TabData, WidgetData } from '../types';
+import type { TabData } from '../types';
 
 interface AIAssistantProps {
   data: TabData[];
+  onCreateChecklist: (tabId: string, title: string, items: string[]) => void;
 }
 
 type ChatMessage = { role: 'user' | 'assistant'; text: string };
 
-const AIAssistant: React.FC<AIAssistantProps> = ({ data }) => {
+const AIAssistant: React.FC<AIAssistantProps> = ({ data, onCreateChecklist }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pinTabId, setPinTabId] = useState<string>(data[0]?.id || 'dashboard');
+  const [pinTitle, setPinTitle] = useState<string>('Checklist');
 
   // Build a compact context from the dashboard data to help the AI be useful
   const context = useMemo(() => {
     const lines: string[] = [];
-    // Limit size to keep requests small
     const MAX_WIDGETS = 60;
     let count = 0;
 
@@ -60,11 +62,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data }) => {
     setIsLoading(true);
 
     try {
-      // Compose a single prompt that includes the context and the user request.
       const fullPrompt = [
         'You are an organized, kind assistant embedded in a personal Life Dashboard.',
         'The user has memory difficulties—be concrete, clear, and actionable.',
         'Use short lists, dates, and times when relevant. If there are obvious next steps, propose them.',
+        'If asked, produce a simple checklist of steps, each on a new line starting with "- ".',
         'Here is the current dashboard context:',
         context,
         '',
@@ -88,7 +90,6 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data }) => {
       }
       const json = await res.json();
 
-      // Try to extract the assistant text safely
       const text =
         json?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || '').join('\n').trim() ||
         'No response text received from Gemini.';
@@ -111,6 +112,25 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data }) => {
     'Suggest a simple prioritized to-do list based on my notes.',
     'Help me plan the week. What should I focus on first?',
   ];
+
+  const lastAssistantMessage = messages.slice().reverse().find(m => m.role === 'assistant')?.text || '';
+
+  const extractChecklistItems = (text: string): string[] => {
+    const lines = text.split('\n').map(l => l.trim());
+    const items: string[] = [];
+    for (const l of lines) {
+      const m = l.match(/^([-*]|\\d+\\.)\\s+(.*)$/);
+      if (m && m[2]) {
+        items.push(m[2]);
+      }
+    }
+    // Fallback: heuristically split sentences
+    if (items.length === 0) {
+      const sentences = text.split(/[\\n\\.;]+/).map(s => s.trim()).filter(Boolean);
+      return sentences.slice(0, 10);
+    }
+    return items.slice(0, 20);
+  };
 
   return (
     <>
@@ -175,6 +195,38 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data }) => {
               {isLoading && (
                 <div className="text-slate-400 text-sm">Thinking...</div>
               )}
+            </div>
+
+            {/* Pin checklist from last response */}
+            <div className="mt-3 bg-slate-900/40 border border-slate-700 rounded-md p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs text-slate-400">Pin as Checklist to</label>
+                <select
+                  value={pinTabId}
+                  onChange={(e) => setPinTabId(e.target.value)}
+                  className="text-xs bg-slate-700 border border-slate-600 rounded-md px-2 py-1 text-white"
+                >
+                  {data.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <input
+                  value={pinTitle}
+                  onChange={(e) => setPinTitle(e.target.value)}
+                  className="text-xs bg-slate-700 border border-slate-600 rounded-md px-2 py-1 text-white flex-1"
+                  placeholder="Checklist title"
+                />
+                <button
+                  className="text-xs px-2 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => {
+                    const items = extractChecklistItems(lastAssistantMessage);
+                    if (items.length === 0) return;
+                    onCreateChecklist(pinTabId, pinTitle.trim() || 'Checklist', items);
+                  }}
+                  disabled={!lastAssistantMessage.trim()}
+                >
+                  Create Checklist
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-2">Tip: Ask me for “break down my notes into actionable steps” then pin them.</p>
             </div>
 
             {/* Input */}

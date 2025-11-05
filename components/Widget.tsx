@@ -1,5 +1,5 @@
-import React, { useRef, useCallback } from 'react';
-import type { WidgetData } from '../types';
+import React, { useRef, useCallback, useState } from 'react';
+import type { WidgetData, ChecklistWidgetContent } from '../types';
 import AppointmentWidgetEditor from './AppointmentWidgetEditor';
 import ScheduleWidgetEditor from './ScheduleWidgetEditor';
 
@@ -9,6 +9,77 @@ interface WidgetProps {
   onRemove: () => void;
   onResize: (newSize: { colSpan: number; rowSpan: number }) => void;
 }
+
+const ChecklistView: React.FC<{
+  content: ChecklistWidgetContent;
+  onChange: (newContent: ChecklistWidgetContent) => void;
+}> = ({ content, onChange }) => {
+  const [newItemText, setNewItemText] = useState('');
+
+  const toggleItem = (index: number) => {
+    const items = content.items.slice();
+    items[index] = { ...items[index], done: !items[index].done };
+    onChange({ items });
+  };
+
+  const addItem = () => {
+    const text = newItemText.trim();
+    if (!text) return;
+    onChange({ items: [...content.items, { text, done: false }] });
+    setNewItemText('');
+  };
+
+  const removeItem = (index: number) => {
+    const items = content.items.filter((_, i) => i !== index);
+    onChange({ items });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2">
+        {content.items.length === 0 ? (
+          <p className="text-slate-400 text-sm">No items yet. Add your first task below.</p>
+        ) : (
+          content.items.map((item, idx) => (
+            <div key={idx} className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={item.done}
+                onChange={() => toggleItem(idx)}
+                className="h-4 w-4 accent-blue-600"
+              />
+              <span className={`flex-1 text-sm ${item.done ? 'line-through text-slate-500' : 'text-slate-200'}`}>
+                {item.text}
+              </span>
+              <button
+                className="text-xs text-slate-400 hover:text-red-400"
+                onClick={() => removeItem(idx)}
+                title="Remove item"
+              >
+                Remove
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={newItemText}
+          onChange={(e) => setNewItemText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addItem()}
+          placeholder="Add a new task..."
+          className="flex-1 bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+        />
+        <button
+          onClick={addItem}
+          className="px-3 py-2 rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+        >
+          Add
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Widget: React.FC<WidgetProps> = ({ widget, onChange, onRemove, onResize }) => {
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -89,6 +160,11 @@ const Widget: React.FC<WidgetProps> = ({ widget, onChange, onRemove, onResize })
           <ScheduleWidgetEditor
             content={widget.content}
             onChange={onChange}
+          />
+        ) : widget.type === 'checklist' ? (
+          <ChecklistView
+            content={widget.content}
+            onChange={(c) => onChange(c)}
           />
         ) : (
           <textarea
