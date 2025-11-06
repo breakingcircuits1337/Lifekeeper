@@ -45,7 +45,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data, onCreateChecklist }) =>
     return lines.join('\n');
   }, [data]);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = localStorage.getItem('settings.geminiApiKey') || import.meta.env.VITE_GEMINI_API_KEY;
 
   const sendPrompt = async (prompt: string) => {
     if (!apiKey) {

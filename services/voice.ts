@@ -1,10 +1,22 @@
 export const speakReminder = async (text: string) => {
   try {
-    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-    const voiceId = import.meta.env.VITE_ELEVENLABS_VOICE_ID;
+    const apiKey =
+      localStorage.getItem('settings.elevenApiKey') || import.meta.env.VITE_ELEVENLABS_API_KEY;
+    const voiceId =
+      localStorage.getItem('settings.elevenVoiceId') || import.meta.env.VITE_ELEVENLABS_VOICE_ID;
+
+    const stability =
+      parseFloat(localStorage.getItem('settings.elevenStability') || '') ||
+      parseFloat(String(import.meta.env.VITE_ELEVENLABS_STABILITY || '0.4'));
+    const similarity =
+      parseFloat(localStorage.getItem('settings.elevenSimilarity') || '') ||
+      parseFloat(String(import.meta.env.VITE_ELEVENLABS_SIMILARITY || '0.7'));
+    const style =
+      parseFloat(localStorage.getItem('settings.elevenStyle') || '') ||
+      parseFloat(String(import.meta.env.VITE_ELEVENLABS_STYLE || '0.5'));
 
     if (!apiKey || !voiceId) {
-      console.warn('ElevenLabs API key or voice ID missing. Set VITE_ELEVENLABS_API_KEY and VITE_ELEVENLABS_VOICE_ID in .env.local');
+      console.warn('ElevenLabs API key or voice ID missing. Set VITE_ELEVENLABS_API_KEY and VITE_ELEVENLABS_VOICE_ID in .env.local or via Settings.');
       return;
     }
 
@@ -17,8 +29,9 @@ export const speakReminder = async (text: string) => {
       body: JSON.stringify({
         text,
         voice_settings: {
-          stability: 0.4,
-          similarity_boost: 0.7,
+          stability,
+          similarity_boost: similarity,
+          style,
         },
       }),
     });
@@ -31,11 +44,9 @@ export const speakReminder = async (text: string) => {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
-    // Try to play; user gesture may be required depending on browser autoplay policies
     audio.play().catch((err) => {
       console.warn('Audio playback blocked or failed:', err);
     });
-    // Cleanup when finished
     audio.addEventListener('ended', () => URL.revokeObjectURL(url));
   } catch (err) {
     console.warn('Failed to speak reminder:', err);

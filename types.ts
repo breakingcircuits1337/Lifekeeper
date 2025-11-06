@@ -55,11 +55,21 @@ export interface ChecklistWidgetData extends BaseWidgetData {
   content: ChecklistWidgetContent;
 }
 
+export interface SettingsWidgetContent {
+  // Local-only configuration snapshot (optional)
+}
+
+export interface SettingsWidgetData extends BaseWidgetData {
+  type: 'settings';
+  content: SettingsWidgetContent;
+}
+
 export type WidgetData =
   | GenericWidgetData
   | AppointmentWidgetData
   | ScheduleWidgetData
-  | ChecklistWidgetData;
+  | ChecklistWidgetData
+  | SettingsWidgetData;
 
 
 export interface TabData {

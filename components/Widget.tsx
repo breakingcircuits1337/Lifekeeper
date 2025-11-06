@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useState } from 'react';
 import type { WidgetData, ChecklistWidgetContent } from '../types';
 import AppointmentWidgetEditor from './AppointmentWidgetEditor';
 import ScheduleWidgetEditor from './ScheduleWidgetEditor';
+import SettingsWidget from './SettingsWidget';
 
 interface WidgetProps {
   widget: WidgetData;
@@ -166,6 +167,8 @@ const Widget: React.FC<WidgetProps> = ({ widget, onChange, onRemove, onResize })
             content={widget.content}
             onChange={(c) => onChange(c)}
           />
+        ) : widget.type === 'settings' ? (
+          <SettingsWidget />
         ) : (
           <textarea
             value={widget.content}
