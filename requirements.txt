@@ -1,0 +1,2 @@
+# No Python dependencies.
+# This project uses Node.js, Vite, and React. See package.json for JavaScript dependencies.
