@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { TabData } from '../types';
+import SmartTaskSuggestions from './SmartTaskSuggestions';
+import { generateSuggestions } from '../services/TaskSuggester';
 
 interface AIAssistantProps {
   data: TabData[];
@@ -15,6 +17,8 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data, onCreateChecklist }) =>
   const [isLoading, setIsLoading] = useState(false);
   const [pinTabId, setPinTabId] = useState<string>(data[0]?.id || 'dashboard');
   const [pinTitle, setPinTitle] = useState<string>('Checklist');
+
+  const suggestions = useMemo(() => generateSuggestions(data), [data]);
 
   // Build a compact context from the dashboard data to help the AI be useful
   const context = useMemo(() => {
@@ -106,6 +110,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data, onCreateChecklist }) =>
     }
   };
 
+  const handleSuggestionClick = (prompt: string) => {
+    setInput(prompt);
+    sendPrompt(prompt);
+  };
+
   const quickPrompts = [
     'Summarize my schedule for today and the next 3 days.',
     'List upcoming appointments and their details.',
@@ -161,6 +170,9 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ data, onCreateChecklist }) =>
                 ✕
               </button>
             </div>
+
+            {/* Smart Suggestions */}
+            <SmartTaskSuggestions suggestions={suggestions} onSuggestionClick={handleSuggestionClick} />
 
             {/* Quick prompts */}
             <div className="flex flex-wrap gap-2 mb-3">

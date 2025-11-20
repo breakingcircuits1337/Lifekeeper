@@ -4,7 +4,7 @@ import Clock from './Clock';
 import Calendar from './Calendar';
 
 const parseTimeRange = (text: string, baseDate: Date): { startTime: Date | null, endTime: Date | null, description: string } => {
-    const timeRegex = /((\d{1,2})(?::(\d{2}))?\s*(am|pm)?)/gi;
+    const timeRegex = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/gi;
     const matches = [...text.matchAll(timeRegex)];
 
     let startTime: Date | null = null;
@@ -29,14 +29,14 @@ const parseTimeRange = (text: string, baseDate: Date): { startTime: Date | null,
 
     if (matches.length > 0) {
         const firstMatch = matches[0];
-        startTime = createDate(firstMatch[2], firstMatch[3], firstMatch[4]);
+        startTime = createDate(firstMatch[1], firstMatch[2], firstMatch[3]);
         
         // Remove time string from description for cleaner display
         description = text.replace(firstMatch[0], '').trim();
 
         if (matches.length > 1) {
             const secondMatch = matches[1];
-            endTime = createDate(secondMatch[2], secondMatch[3], secondMatch[4]);
+            endTime = createDate(secondMatch[1], secondMatch[2], secondMatch[3]);
              // Further clean description
             description = description.replace(secondMatch[0], '').replace(/[-to]+/i, '').trim();
         }

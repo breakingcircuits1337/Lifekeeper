@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 interface AddWidgetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (title: string, type: 'generic' | 'appointment') => void;
+  onSave: (title: string, type: 'generic' | 'appointment' | 'schedule' | 'checklist') => void;
 }
 
 type Step = 'select' | 'title';
@@ -12,7 +12,7 @@ type Step = 'select' | 'title';
 const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ isOpen, onClose, onSave }) => {
   const [title, setTitle] = useState('');
   const [step, setStep] = useState<Step>('select');
-  const [widgetType, setWidgetType] = useState<'generic' | 'appointment'>('generic');
+  const [widgetType, setWidgetType] = useState<'generic' | 'appointment' | 'schedule' | 'checklist'>('generic');
 
   useEffect(() => {
     if (isOpen) {
@@ -22,7 +22,7 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ isOpen, onClose, onSave
     }
   }, [isOpen]);
 
-  const handleTypeSelect = (type: 'generic' | 'appointment') => {
+  const handleTypeSelect = (type: 'generic' | 'appointment' | 'schedule' | 'checklist') => {
     setWidgetType(type);
     setStep('title');
   };
@@ -47,6 +47,14 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ isOpen, onClose, onSave
                 <h3 className="font-bold text-lg text-slate-200">Appointment</h3>
                 <p className="text-sm text-slate-400">A structured note for events, automatically shown on the calendar.</p>
             </button>
+            <button onClick={() => handleTypeSelect('checklist')} className="p-4 bg-slate-700 hover:bg-slate-600 rounded-lg text-left transition-colors">
+                <h3 className="font-bold text-lg text-slate-200">Checklist</h3>
+                <p className="text-sm text-slate-400">Interactive to-do list with checkable items.</p>
+            </button>
+            <button onClick={() => handleTypeSelect('schedule')} className="p-4 bg-slate-700 hover:bg-slate-600 rounded-lg text-left transition-colors">
+                <h3 className="font-bold text-lg text-slate-200">Weekly Schedule</h3>
+                <p className="text-sm text-slate-400">Organize activities by day of the week.</p>
+            </button>
         </div>
         <div className="mt-6 flex justify-end">
             <button onClick={onClose} className="px-4 py-2 rounded-md text-slate-300 bg-slate-900/50 hover:bg-slate-700/80 transition-colors">
@@ -58,10 +66,10 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ isOpen, onClose, onSave
 
   const TitleView = () => (
     <>
-        <h2 className="text-2xl font-bold text-slate-100 mb-4">Add New {widgetType === 'appointment' ? 'Appointment' : 'Widget'}</h2>
+        <h2 className="text-2xl font-bold text-slate-100 mb-4">Add New {widgetType === 'appointment' ? 'Appointment' : widgetType === 'checklist' ? 'Checklist' : widgetType === 'schedule' ? 'Schedule' : 'Widget'}</h2>
         <div>
             <label htmlFor="widget-title" className="block text-sm font-medium text-slate-300 mb-2">
-                {widgetType === 'appointment' ? 'Appointment Title' : 'Widget Title'}
+                {widgetType === 'appointment' ? 'Appointment Title' : widgetType === 'checklist' ? 'Checklist Name' : widgetType === 'schedule' ? 'Schedule Name' : 'Widget Title'}
             </label>
             <input
                 type="text"
@@ -70,7 +78,7 @@ const AddWidgetModal: React.FC<AddWidgetModalProps> = ({ isOpen, onClose, onSave
                 onChange={(e) => setTitle(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSave()}
                 className="w-full bg-slate-700 border border-slate-600 rounded-md px-3 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder={widgetType === 'appointment' ? "e.g., Dentist Check-up" : "e.g., Grocery List"}
+                placeholder={widgetType === 'appointment' ? "e.g., Dentist Check-up" : widgetType === 'checklist' ? "e.g., Weekly Tasks" : widgetType === 'schedule' ? "e.g., Work Schedule" : "e.g., Grocery List"}
                 autoFocus
             />
         </div>

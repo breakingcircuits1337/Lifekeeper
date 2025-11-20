@@ -135,7 +135,7 @@ const App: React.FC = () => {
     );
   };
   
-  const handleAddNewWidget = (tabId: string, title: string, type: 'generic' | 'appointment' | 'checklist') => {
+  const handleAddNewWidget = (tabId: string, title: string, type: 'generic' | 'appointment' | 'schedule' | 'checklist') => {
     if (!tabId || !title.trim()) return;
 
     let newWidget: WidgetData;
@@ -157,6 +157,12 @@ const App: React.FC = () => {
           ...baseWidget,
           type: 'checklist',
           content: { items: [] },
+        };
+    } else if (type === 'schedule') {
+        newWidget = {
+          ...baseWidget,
+          type: 'schedule',
+          content: { monday: '', tuesday: '', wednesday: '', thursday: '', friday: '', saturday: '', sunday: '' },
         };
     } else {
          newWidget = {
@@ -216,7 +222,7 @@ const App: React.FC = () => {
 
   // Event parsing (copied from DashboardView to reuse for reminders)
   const parseTimeRange = (text: string, baseDate: Date): { startTime: Date | null, endTime: Date | null, description: string } => {
-    const timeRegex = /((\\d{1,2})(?::(\\d{2}))?\\s*(am|pm)?)/gi;
+    const timeRegex = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/gi;
     const matches = [...text.matchAll(timeRegex)];
 
     let startTime: Date | null = null;
@@ -241,14 +247,14 @@ const App: React.FC = () => {
 
     if (matches.length > 0) {
         const firstMatch = matches[0];
-        startTime = createDate(firstMatch[2], firstMatch[3], firstMatch[4]);
+        startTime = createDate(firstMatch[1], firstMatch[2], firstMatch[3]);
         
         // Remove time string from description for cleaner display
         description = text.replace(firstMatch[0], '').trim();
 
         if (matches.length > 1) {
             const secondMatch = matches[1];
-            endTime = createDate(secondMatch[2], secondMatch[3], secondMatch[4]);
+            endTime = createDate(secondMatch[1], secondMatch[2], secondMatch[3]);
              // Further clean description
             description = description.replace(secondMatch[0], '').replace(/[-to]+/i, '').trim();
         }
